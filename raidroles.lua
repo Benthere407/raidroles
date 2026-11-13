@@ -1,6 +1,6 @@
 addon.name    = 'raidroles';
 addon.author  = 'Benthere';
-addon.version = '1.0.0';
+addon.version = '1.1.0';   -- keep in step with data.VERSION
 addon.desc    = 'Raid / alliance job sign-up and party assignment: members register the jobs they can play, leaders build the parties and post them.';
 
 require('common');

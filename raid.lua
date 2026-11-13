@@ -23,6 +23,20 @@ addon can still read it. Lines carry a tag the addon reads: [RR:KIND:field:field
       [RR:STB:<id>:<n>:<job>:<sub>] ...                            you are on standby, number n, on job/sub
     tells - players without the addon, to the leader (the chat bot)
       !rr WHM/SCH BLM/WHM register        !rr      what is my assignment?        !rr help
+
+Compatibility: people in one raid run different copies of the addon, so every change must keep
+older copies working, both ways (an old leader with new members, a new leader with old members):
+  1. Never rename or remove a KIND, and never change what an existing field means or where it is.
+  2. Add information only as new fields at the END of a tag (older copies ignore extra fields),
+     e.g. the version: [RR:REG:<id>:<name>:<i>/<n>:v<version>] and [RR:ACK:<id>:<name>:v<version>].
+  3. A new feature gets a new KIND (older copies ignore KINDs they do not know: they see plain chat).
+  4. Read every field as optional (a default when it is missing); ignore anything not understood.
+     The bodies the addon reads (REG jobs, ASG/UNA lists, ZRG parts) keep their format: only add to them
+     in ways the old patterns still read.
+  5. Members send their version, so the leader knows who is older (Roll Call shows it) and can fall back
+     for them - e.g. a tell, which every copy and players without the addon understand.
+  6. Saved files only gain keys (store.lua fills in defaults for missing ones); never rename a key.
+  7. A broken or unexpected line must never stop the addon: raid.on_text runs inside pcall.
 --]]
 
 require('common');
@@ -378,7 +392,7 @@ function raid.register(name, jobs, src, addon, subs, gear)
     if r == nil or name == '' then return false; end
     local cur = r.roster[name] or {};
     r.roster[name] = { jobs = jobs, subs = subs or cur.subs or {}, gear = gear or cur.gear or {}, src = src,
-                       addon = addon or cur.addon or false, t = os.time(), ack = false, out = cur.out };
+                       addon = addon or cur.addon or false, t = os.time(), ack = false, out = cur.out, ver = cur.ver };
     if src ~= 'self' then remember(name, r.roster[name]); end
     if r.mode == 'auto' and r.posted == false then raid.auto(); end
     store.save();
@@ -562,7 +576,7 @@ function raid.poll()
     check_reach();
     raid.add_self();
     local me = raid.my_name() or '?';
-    to_channel(('%s Raid check! No addon? /tell %s !rr WHM/SCH BLM/WHM (jobs/subjobs)'):format(poll_tag(r), me));
+    to_channel(('%s Raid check! No addon? /tell %s !rr WHM/SCH BLM/WHM  (or !rr help)'):format(poll_tag(r), me));
     say(('Raid check sent to %s.'):format(CHANNEL_NAME[store.me.cfg.channel] or 'chat'));
 end
 
@@ -891,7 +905,7 @@ local function reg_lines(id)
     local me = raid.my_name() or '?';
     local parts = data.signup_chunks(store.me.jobs, store.me.subs, store.me.gear, 64);
     local out = {};
-    for i, part in ipairs(parts) do out[i] = ('[RR:REG:%s:%s:%d/%d] %s'):format(id or '*', me, i, #parts, part); end
+    for i, part in ipairs(parts) do out[i] = ('[RR:REG:%s:%s:%d/%d:v%s] %s'):format(id or '*', me, i, #parts, data.VERSION, part); end
     return out;
 end
 
@@ -933,7 +947,7 @@ function raid.ack()
     local m = raid.mine();
     if m == nil or m.leader == nil then return; end
     if m.leader ~= raid.my_name() then
-        tell(m.leader, ('[RR:ACK:%s:%s] Ready: %s on %s'):format(m.id, raid.my_name() or '?', m.standby and ('standby #' .. m.standby) or (m.party == OH and 'outside heal') or ('party ' .. tostring(m.party or '?')), data.job_sub(m.job or '?', m.sub)));
+        tell(m.leader, ('[RR:ACK:%s:%s:v%s] Ready: %s on %s'):format(m.id, raid.my_name() or '?', data.VERSION,m.standby and ('standby #' .. m.standby) or (m.party == OH and 'outside heal') or ('party ' .. tostring(m.party or '?')), data.job_sub(m.job or '?', m.sub)));
     end
     if m.leader ~= raid.my_name() then tell_note(false, m.leader, '[Raid Roles] role confirmed'); end
     m.acked = true;
@@ -1080,8 +1094,10 @@ local function bot(sender, text)
     bot_last[sender] = now;
     local arg = text:gsub('^%s*!rr%s*', '');
     local low = arg:lower();
-    if low == 'help' then
-        tell(sender, '[RR] /tell me "!rr WHM.B/SCH/RDM BLM.G/WHM" to sign up: best job first, .B .G .T = BIS GOOD TEMU, then subjobs. "!rr" = your assignment.');
+    if low == 'help' or low == '?' or low == 'format' then
+        -- two tells: one tell is cut off after 128 characters
+        tell(sender, ('[RR] Sign up: /tell %s !rr WHM.B/SCH/RDM BLM.G/WHM  (jobs you can play, best first)'):format(raid.my_name() or 'me'));
+        tell(sender, '[RR] After each job: .B .G .T = BIS GOOD TEMU gear, then /subjobs. Send "!rr" alone to see your assignment.');
         return;
     end
     local jobs, subs, gear = data.parse_signup(arg);
@@ -1102,7 +1118,19 @@ end
 
 local reg_parts = {};   -- a sign-up arriving in several tells: name -> { jobs, subs, gear }
 
-local function on_reg(id, name, part, body)
+--- A version field ('v1.1.0') -> '1.1.0'; nil for copies that did not send one (before 1.1.0).
+local function ver_of(field)
+    return field and field:match('^v(%d+[%.%d]*)$') or nil;
+end
+
+--- The leader remembers each member's version (shown in Roll Call).
+local function note_ver(name, ver)
+    local r = raid.get();
+    local m = r and r.roster[name];
+    if m and ver then m.ver = ver; end
+end
+
+local function on_reg(id, name, part, body, ver)
     local r = raid.get();
     if r == nil or (r.id ~= id and id ~= '*') then return; end
     name = cap(name);
@@ -1119,18 +1147,22 @@ local function on_reg(id, name, part, body)
     end
     if #acc.jobs == 0 then return; end
     raid.register(name, store.copy(acc.jobs), 'addon', true, store.copy(acc.subs), store.copy(acc.gear));
+    local m = r.roster[name];
+    if m then m.ver = ver or '1.0.0'; store.save(); end   -- no version field: a copy from before 1.1.0
     if i >= n then
         tell_note(true, name, ('[Raid Roles] signed up with %d job%s (see Roll Call)'):format(#acc.jobs, #acc.jobs == 1 and '' or 's'));
         reg_parts[name] = nil;
     end
 end
 
-local function on_ack(id, name)
+local function on_ack(id, name, ver)
     local r = raid.get();
     if r == nil or r.id ~= id then return; end
     local m = r.roster[cap(name)];
     if m then
-        m.ack = true; store.save();
+        m.ack = true;
+        note_ver(cap(name), ver);
+        store.save();
         tell_note(true, cap(name), '[Raid Roles] role confirmed');
     end
 end
@@ -1165,7 +1197,22 @@ end
 --------------------------------------------------------------------------------
 -- Incoming chat. Returns true when the line should be hidden.
 --------------------------------------------------------------------------------
+local handle_text;
+local err_at = -100;
+
+--- Incoming chat, protected: a line the addon cannot handle (from a newer or older copy, or just
+--- garbled) is skipped, never stops the addon. Returns true when the line should be hidden.
 function raid.on_text(message)
+    local ok, res = pcall(handle_text, message);
+    if ok then return res; end
+    if os.clock() - err_at > 30 then   -- say so at most every 30 s
+        err_at = os.clock();
+        warn('Skipped a chat line it could not read (a different addon version?): ' .. tostring(res):sub(1, 120));
+    end
+    return false;
+end
+
+handle_text = function (message)
     if store.me == nil then return false; end
     local line = tostring(message or ''):gsub('\253[^\253]*\253', ''):gsub('[\30\31\127].', '');
     local hide = store.me.cfg.hide_proto;
@@ -1175,10 +1222,16 @@ function raid.on_text(message)
     if line:find('Your tell was not received', 1, true) then tell_missed(); return false; end
 
     -- the bot: "Name>> !rr ..." (an incoming tell)
-    local sender, rest = line:match('(%a+)>>%s*(!rr.*)$');
+    local sender, rest = line:match('(%a+)>>%s*(![Rr][Rr].*)$');
     if sender then
-        bot(cap(sender), rest);
+        bot(cap(sender), '!rr' .. rest:sub(4));
         return hide and raid.get() ~= nil;
+    end
+    -- the bot in party chat too: "(Name) !rr help" / "(Name) !rr WHM/SCH" (answered by tell, not in chat)
+    sender, rest = line:match('^%s*%((%a+)%)%s*(![Rr][Rr].*)$');
+    if sender and cap(sender) ~= raid.my_name() then
+        bot(cap(sender), '!rr' .. rest:sub(4));
+        return false;
     end
     if line:find('[RR] ', 1, true) then
         return hide and line:find('^%s*>>') ~= nil;   -- our own bot replies, echoed back
@@ -1212,10 +1265,10 @@ function raid.on_text(message)
     elseif kind == 'REG' then
         -- from a tell ("Name>> ...") or party chat ("(Name) ..."), and only for the sender themself
         local from = line:match('(%a+)>>') or line:match('%((%a+)%)');
-        if from and cap(from) == cap(f[2]) then on_reg(f[1], f[2], f[3], body); end
+        if from and cap(from) == cap(f[2]) then on_reg(f[1], f[2], f[3], body, ver_of(f[4])); end
         return hide;
     elseif kind == 'ACK' then
-        if line:match('(%a+)>>') then on_ack(f[1], f[2]); end
+        if line:match('(%a+)>>') then on_ack(f[1], f[2], ver_of(f[3])); end
         return hide;
     end
     return false;

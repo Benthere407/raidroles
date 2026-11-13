@@ -968,6 +968,15 @@ local function page_roll()
     imgui.TextColored(C.dim, ('%d registered  -  %d in alliance  -  '):format(nreg, nally));
     imgui.SameLine(0, 0);
     imgui.TextColored(missing > 0 and C.bad or C.good, ('%d in alliance not registered'):format(missing));
+    local older = 0;
+    for _, e in ipairs(roll) do
+        if e.reg and e.reg.addon and e.reg.ver and not data.ver_at_least(e.reg.ver, data.VERSION) then older = older + 1; end
+    end
+    if older > 0 then
+        imgui.SameLine(0, 0);
+        imgui.TextColored(C.gold, ('  -  %d on an older Raid Roles'):format(older));
+        tip('They can still sign up, get assignments and confirm. Hover their Registered column for the version.');
+    end
 
     if vc.button('Raid check', 'primary') then raid.poll(); end
     imgui.SameLine();
@@ -1000,7 +1009,14 @@ local function page_roll()
             if e.reg then tip(full); end
             imgui.SameLine(lx + z(COLS[3]));
             if e.reg then
-                imgui.TextColored(out and C.mute or C.good, out and 'sitting out' or (SRC_LABEL[e.reg.src] or e.reg.src));
+                local older = e.reg.addon and e.reg.ver and not data.ver_at_least(e.reg.ver, data.VERSION);
+                local label = out and 'sitting out' or (SRC_LABEL[e.reg.src] or e.reg.src);
+                if not out and e.reg.addon and e.reg.ver then label = label .. ' ' .. e.reg.ver; end
+                imgui.TextColored(out and C.mute or (older and C.gold or C.good), label);
+                if older then
+                    tip(('%s runs Raid Roles %s (you have %s). It still works together; they can update when convenient.')
+                        :format(name, e.reg.ver, data.VERSION));
+                end
             else
                 imgui.TextColored(C.bad, 'NOT registered');
             end
@@ -1398,7 +1414,8 @@ local function page_help()
     vc.note('.B = BIS, .G = GOOD, .T = TEMU (leave it off if unsure). Up to 5 subjobs per job. Leaving out the subjobs is fine too:  !rr WHM BLM COR');
     vc.stat('  !rr', 'what is my assignment? (party, job and subjob, or standby number)', C.text, 170);
     vc.stat('  !rr help', 'the leader replies with how to sign up', C.text, 170);
-    vc.note('Sending a new !rr sign-up replaces the old one. The leader\'s addon answers each tell automatically.');
+    vc.note('Sending a new !rr sign-up replaces the old one. The leader\'s addon answers automatically, by tell. '
+        .. 'All of these also work typed in party chat (e.g. "!rr help"), and !RR in capitals works too.');
     vc.section('COMMANDS');
     for _, c in ipairs({
         { '/roles', 'open or close this window' },

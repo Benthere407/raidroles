@@ -71,7 +71,7 @@ Everything goes through ordinary chat, so it needs no server support and works f
 | Leader | everyone | `[RR:ZRG]` zerg plan, `[RR:POLL:...]` raid check, `[RR:POST]` + `[RR:ASG]` per party + `[RR:SBY]` standby: in party/alliance chat, linkshell or linkshell 2 (Settings) |
 | Member | leader | `[RR:REG]` jobs, `[RR:ACK]` ready: by tell (hidden from the chat log) |
 | Leader | member | `[RR:YOU]` their assignment, `[RR:STB]` their standby number, and nudges: by tell |
-| No-addon player | leader | `!rr WHM.B/SCH/RDM BLM.G/WHM` to sign up (.B .G .T = BIS GOOD TEMU, subjobs after slashes), `!rr` for their assignment, `!rr help` (the leader's addon answers: a chat bot) |
+| No-addon player | leader | `!rr WHM.B/SCH/RDM BLM.G/WHM` to sign up (.B .G .T = BIS GOOD TEMU, subjobs after slashes), `!rr` for their assignment, `!rr help` for the format (the leader's addon answers by tell: a chat bot). All of these also work in party chat. |
 
 Party chat reaches the whole alliance once it is formed; before that, use a linkshell everyone shares. Lines are
 sent one every 2.5 s (Settings, 1.5 s at least): the game refuses chat sent faster ("...A command error
@@ -81,6 +81,15 @@ Tells longer than 128 characters are cut off, so the addon's lines stay under 12
 Warnings for the leader: posting to party chat while not in a party (reaches nobody) or not yet in an alliance
 (reaches only your party); and a member who was offline or zoning when told shows "Tell not received" on the
 Raid Board.
+
+## Mixed versions
+
+Everyone does not need the same copy. Older and newer copies work together in both directions (an old leader
+with new members, or the other way round): the addon ignores message types and extra fields it does not know,
+and a line it cannot read is skipped instead of stopping it. Members send their version with their sign-up and
+confirmation, and the leader's Roll Call shows it, with anyone on an older copy in gold. Copies from before
+1.1.0 send no version, so they show as 1.0.0. The rules that keep new changes compatible are written at the
+top of `raid.lua`.
 
 ## Commands
 

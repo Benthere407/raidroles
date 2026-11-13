@@ -5,6 +5,22 @@ jobs, roles, slot requirements (PLD/WAR), sign-ups (jobs, subjobs, gear) and the
 
 local data = {};
 
+-- This copy's version (also addon.version). Members send it with their sign-up and confirmation,
+-- so the leader can see who runs an older copy and fall back for them (see raid.lua: compatibility).
+data.VERSION = '1.1.0';
+
+--- Is version string `v` ('1.2.0') at least `want`? A missing version (copies before 1.1.0 did
+--- not send one) counts as '1.0.0'.
+function data.ver_at_least(v, want)
+    local a = { tostring(v or '1.0.0'):match('^(%d+)%.?(%d*)%.?(%d*)') };
+    local b = { tostring(want):match('^(%d+)%.?(%d*)%.?(%d*)') };
+    for i = 1, 3 do
+        local x, y = tonumber(a[i]) or 0, tonumber(b[i]) or 0;
+        if x ~= y then return x > y; end
+    end
+    return true;
+end
+
 -- Job abbreviations in the game's id order (index = job id).
 data.JOBS = {
     'WAR', 'MNK', 'WHM', 'BLM', 'RDM', 'THF', 'PLD', 'DRK', 'BST', 'BRD', 'RNG',
