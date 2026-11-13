@@ -1,0 +1,2 @@
+# saved data (per character / leader fights) lives in the game install, not here
+*.json
