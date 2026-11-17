@@ -1,7 +1,8 @@
 --[[
 raidroles - the windows, in Vanacore's style (vcmenu).
 
-    main window    My Jobs, My Assignment | Leader: Raid Board, Roll Call, Fights | Settings, Help
+    main window    My Jobs, My Assignment | Leader: Raid Board, Roll Call, Fights, Zerg,
+                   Pop Rolls, Pop History (pops_ui.lua) | Settings, Help
     raid check     a small window asking the member to send (or fix) their jobs
     assignment     a small window showing the member's party and job
 --]]
@@ -13,6 +14,7 @@ local data  = require('data');
 local store = require('store');
 local raid  = require('raid');
 local solver = require('solver');
+local pui    = require('pops_ui');
 
 local C = vc.colors;
 local ui = {};
@@ -1382,6 +1384,7 @@ local function page_settings()
     if v ~= nil then cfg.hide_proto = v; changed = true; end
 
     if changed then store.save(); end
+    pui.settings();
 end
 
 local function page_help()
@@ -1426,6 +1429,8 @@ local function page_help()
         { '/roles check | auto | post | nudge', 'leader: raid check, auto-fill, post, nudge' },
         { '/roles add <name> <jobs>', 'leader: register someone by hand' },
     }) do vc.stat(c[1], c[2], C.dim, 230); end
+    for _, c in ipairs(pui.COMMANDS) do vc.stat(c[1], c[2], C.dim, 230); end
+    pui.help();
 end
 
 --------------------------------------------------------------------------------
@@ -1506,11 +1511,13 @@ end
 local PAGES = {
     jobs = page_jobs, mine = page_mine,
     board = page_board, roll = page_roll, fights = page_fights, zerg = page_zerg,
+    pops = pui.page_pops, pophist = pui.page_history,
     settings = page_settings, help = page_help,
 };
 local SUB = {
     jobs = 'My Jobs', mine = 'My Assignment', board = 'Raid Board', roll = 'Roll Call',
-    fights = 'Fights', zerg = 'Zerg', settings = 'Settings', help = 'Help',
+    fights = 'Fights', zerg = 'Zerg', pops = 'Pop Rolls', pophist = 'Pop History',
+    settings = 'Settings', help = 'Help',
 };
 
 local function sidebar(nav)
@@ -1524,6 +1531,9 @@ local function sidebar(nav)
     if nav.head('files', 'Fights', win.page == 'fights') then win.page = 'fights'; end
     if nav.head('spark', 'Zerg', win.page == 'zerg') then win.page = 'zerg'; end
     nav.tip('Bard and corsair rotation through the parties');
+    if nav.head('play', 'Pop Rolls', win.page == 'pops') then win.page = 'pops'; end
+    nav.tip('A /random roll call that builds the pop order');
+    if nav.item('Pop History', win.page == 'pophist') then win.page = 'pophist'; end
     nav.gap(8);
     if nav.head('gear', 'Settings', win.page == 'settings') then win.page = 'settings'; end
     if nav.head('about', 'Help', win.page == 'help') then win.page = 'help'; end
@@ -1539,6 +1549,7 @@ function ui.init()
     raid.events.on_zerg = function ()
         if store.me.cfg.popup then win.open[1] = true; win.page = 'mine'; end
     end
+    pui.init(win);
 end
 
 function ui.toggle(page)
@@ -1556,6 +1567,8 @@ function ui.render()
         pages = PAGES, scaler = true, on_scale = save_scale,
         subtitle = function (page) return SUB[page]; end,
         header_right = function ()
+            local pt, pc = pui.header();
+            if pt then return pt, pc; end
             local r = raid.get();
             if r then return ('Raid %s  -  %s'):format(r.id, r.fight), C.gold; end
             return '', nil;

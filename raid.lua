@@ -150,6 +150,8 @@ end
 function raid.queue_size() return #queue; end
 function raid.clear_queue() queue = {}; end
 function raid.queued() return queue; end
+--- Queues one chat command (e.g. '/p hello') to go out through the same queue (pops.lua uses it).
+function raid.send_line(line) send(line); end
 
 local CHANNEL_CMD = { p = '/p', l = '/l', l2 = '/l2' };
 local CHANNEL_NAME = { p = 'party / alliance chat', l = 'linkshell', l2 = 'linkshell 2' };

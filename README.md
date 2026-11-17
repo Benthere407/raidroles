@@ -62,6 +62,29 @@ Job sign-up and party assignment for alliance and party events, in Vanacore-styl
 - **Post zerg plan** puts it in chat and tells each bard and corsair their part (Settings); **Tell** re-sends one.
   Members with the addon see their part, and the whole plan, at the top of **My Assignment**.
 
+## Pop Rolls (leader)
+
+**Pop Rolls** in the sidebar (or `/pops`) runs a `/random` roll call and turns it into a pop order:
+
+- **Start rolls** posts *"Start your rolls! You have 60 seconds."* and records every `Dice roll! Name rolls 523!`.
+  The page counts down 60, 59, 58 ... with **Stop** (end now, keep the rolls) and **Cancel** (keep the old order)
+  beside it, and posts "30 / 10 seconds left".
+- The rolls become the **pop order**, highest first (a tie goes to whoever rolled first). If nobody rolled, the old
+  order stays.
+- **Pops each** (− / +) is how many pops everyone gets. The order goes round: whoever has the fewest pops is up next,
+  top of the order first, until everyone has that many. The **Pops** column has − / + for anyone's count.
+- **Call up** posts `Up to pop (#2 of 8): Name - on deck: Name`; **Next** gives them a pop and posts the next person;
+  **Back** takes that pop back.
+- **Add someone** (roll and spot optional), the arrows move people, **x** removes them; **Post order**,
+  **Sort by roll**, **Reset pops**, **Clear**.
+- **Pop History** keeps the last 25 roll calls (use one again, or post it); each is also written to
+  `config/addons/raidroles/pop_history.txt`.
+- Settings > **POP ROLLS**: its own channel (Party/Alliance, Linkshell, Linkshell 2, Say, Shout), how long rolls
+  stay open, pops each, the countdown, first roll only, post the order when rolls close, and the messages.
+  Lines go out through the same queue as the rest of the addon (the delay and resend in Settings).
+
+Pop Rolls is local to the leader: it is plain chat, not part of the `[RR:...]` messages, so members need nothing.
+
 ## How the addon talks
 
 Everything goes through ordinary chat, so it needs no server support and works for players without the addon.
@@ -101,4 +124,13 @@ top of `raid.lua`.
     /roles add <name> WHM.B/SCH ...   leader: register someone by hand
     /roles board | roll
 
-Saved in `config/addons/raidroles/`: `fights.json` (shared) and `<Character>.json` (jobs, settings, raid).
+    /pops  (or /roles pops)       open Pop Rolls
+    /pops start [sec] | stop | cancel
+    /pops call | next | back      who is up | give a pop and call next | undo
+    /pops post [p|l|l2|s|sh]      post the pop order
+    /pops each <n>                pops each person gets
+    /pops count <name> <n>        set someone's pop count
+    /pops add <name> [roll] [spot] | remove <name> | move <name> <spot>
+    /pops sort | reset | clear | history
+
+Saved in `config/addons/raidroles/`: `fights.json` (shared) and `<Character>.json` (jobs, settings, raid, pop rolls).

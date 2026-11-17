@@ -7,7 +7,7 @@ local data = {};
 
 -- This copy's version (also addon.version). Members send it with their sign-up and confirmation,
 -- so the leader can see who runs an older copy and fall back for them (see raid.lua: compatibility).
-data.VERSION = '1.1.0';
+data.VERSION = '1.2.0';
 
 --- Is version string `v` ('1.2.0') at least `want`? A missing version (copies before 1.1.0 did
 --- not send one) counts as '1.0.0'.
